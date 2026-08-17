@@ -3,6 +3,16 @@
 # Idempotente: rodar de novo nao quebra nada e nao reinstala o que ja existe.
 set -uo pipefail
 
+# Rodado a partir do app de desktop, este script nao herda o PATH do perfil do
+# shell — e abortaria dizendo que falta Homebrew numa maquina que tem Homebrew.
+_prefixo=""
+for _d in /opt/homebrew/bin "$HOME/.local/bin" /usr/local/bin /opt/local/bin \
+          "$HOME/.cargo/bin" /home/linuxbrew/.linuxbrew/bin; do
+  [ -d "$_d" ] && [[ ":$PATH:" != *":$_d:"* ]] && _prefixo="${_prefixo}${_d}:"
+done
+PATH="${_prefixo}${PATH}"
+export PATH
+
 AQUI="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_DIR="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
 FALTOU=0
@@ -49,13 +59,25 @@ done
 
 # Pillow desenha a hora dentro do frame. Sem isso a folha de contato vira
 # mosaico sem referencia, porque o ffmpeg do Homebrew vem sem libfreetype.
-if python3 -c "import PIL" 2>/dev/null; then
-  ok "Pillow (python)"
+# Numa maquina com varios pythons, instalar no errado nao adianta: os scripts
+# procuram o que ja tem PIL, entao o instalador tem que usar o mesmo criterio.
+PY=""
+for cand in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+  command -v "$cand" >/dev/null 2>&1 || continue
+  if "$cand" -c "import PIL" 2>/dev/null; then PY="$cand"; break; fi
+done
+if [ -n "$PY" ]; then
+  ok "Pillow (via $PY)"
 else
-  echo "      instalando Pillow..."
-  python3 -m pip install --user --quiet Pillow 2>/dev/null \
-    && ok "Pillow (instalado)" \
-    || erro "Pillow — tente: python3 -m pip install --user Pillow"
+  PY="$(command -v python3)"
+  echo "      instalando Pillow em $PY..."
+  "$PY" -m pip install --user --quiet Pillow 2>/dev/null \
+    || "$PY" -m pip install --user --break-system-packages --quiet Pillow 2>/dev/null
+  if "$PY" -c "import PIL" 2>/dev/null; then
+    ok "Pillow (instalado em $PY)"
+  else
+    erro "Pillow — tente: $PY -m pip install --user Pillow"
+  fi
 fi
 
 if tem uv; then
