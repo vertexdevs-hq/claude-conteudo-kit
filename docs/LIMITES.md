@@ -149,3 +149,43 @@ Gerado pelo **motor de impressão do Chrome** (`--print-to-pdf`), não por scree
 Nunca use html2canvas ou captura de tela para gerar PDF de documento: perde busca, copiar-colar e nitidez.
 
 O modo `--modo deck` quebra os slides em `---` (regra horizontal do markdown). Sem `---` no arquivo, sai tudo num slide só.
+
+---
+
+## App de desktop e PATH
+
+O Claude Code roda os comandos na máquina local em todas as superfícies (terminal, app de desktop, extensão de IDE). O que muda é o **ambiente herdado**.
+
+Aplicativo lançado pela interface gráfica no macOS não lê `.zshrc`/`.bash_profile`. Resultado com PATH mínimo, antes do tratamento:
+
+```
+$ env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" bash -c 'command -v ffmpeg yt-dlp uv gallery-dl'
+(nada)
+```
+
+Os três scripts prefixam o PATH na inicialização:
+
+```
+/opt/homebrew/bin  →  Homebrew (Apple Silicon)
+~/.local/bin       →  ferramentas do uv e pipx (gallery-dl mora aqui)
+/usr/local/bin     →  Homebrew (Intel)
+/opt/local/bin     →  MacPorts
+~/.cargo/bin       →  Rust
+/home/linuxbrew/.linuxbrew/bin
+```
+
+**A ordem importa.** Numa primeira versão o loop prefixava um por um, o que invertia a precedência: `/usr/local/bin` acabava na frente de `/opt/homebrew/bin`, e `python3` resolvia para um interpretador **sem Pillow**. O diagnóstico enganava — dizia "Pillow FALTA" numa máquina onde o Pillow estava instalado, só que em outro Python.
+
+Por isso existe `escolher_python()`: ele não aceita o primeiro `python3` do PATH, testa `import PIL` e usa o que passar.
+
+Diagnóstico: `vid doctor` mostra o PATH efetivo, onde cada ferramenta foi encontrada e qual Python está sendo usado para o Pillow.
+
+## Windows
+
+Os scripts são bash. No Windows é preciso **WSL**, com o kit instalado dentro dele.
+
+O `frames_tool.py` já procura fonte em `C:/Windows/Fonts` (arialbd, segoeuib, arial), então o rótulo de tempo funciona se alguém rodar o Python nativamente. Mas `install.sh` só conhece `brew` e `apt`, e os três executáveis são shell script — sem WSL ou Git Bash, não rodam.
+
+## Claude Code na web
+
+Não funciona, e a razão é estrutural: não existe máquina local com ffmpeg instalado nem navegador logado no Instagram para emprestar cookie. Este kit é local por natureza.

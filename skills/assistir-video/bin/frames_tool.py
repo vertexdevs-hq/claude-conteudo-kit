@@ -11,10 +11,18 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 FONTS = [
+    # macOS
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
     "/System/Library/Fonts/Supplemental/Arial.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
+    # Linux
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+    # Windows
+    "C:/Windows/Fonts/arialbd.ttf",
+    "C:/Windows/Fonts/segoeuib.ttf",
+    "C:/Windows/Fonts/arial.ttf",
 ]
 
 LABEL_PAD = 6

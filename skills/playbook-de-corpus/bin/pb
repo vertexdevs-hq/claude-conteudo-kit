@@ -3,6 +3,13 @@
 # Roda o conversor via `uv run`, entao nao instala biblioteca no python do sistema.
 set -euo pipefail
 
+# App de desktop lancado pela GUI nao herda o PATH do perfil do shell.
+for _d in /opt/homebrew/bin /usr/local/bin "$HOME/.local/bin" /opt/local/bin \
+          "$HOME/.cargo/bin" /home/linuxbrew/.linuxbrew/bin; do
+  [ -d "$_d" ] && [[ ":$PATH:" != *":$_d:"* ]] && PATH="$_d:$PATH"
+done
+export PATH
+
 AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 command -v uv >/dev/null 2>&1 || {

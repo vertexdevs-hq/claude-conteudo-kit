@@ -3,6 +3,31 @@
 # O modelo nao le video. Le imagem e texto. Este script transforma um em outro.
 set -euo pipefail
 
+# App de desktop lancado pela GUI nao herda o PATH do perfil do shell: sem isto,
+# ffmpeg e yt-dlp somem e o erro que aparece e "command not found".
+# A ordem importa: o primeiro da lista tem que ficar na frente do PATH.
+_prefixo=""
+for _d in /opt/homebrew/bin "$HOME/.local/bin" /usr/local/bin /opt/local/bin \
+          "$HOME/.cargo/bin" /home/linuxbrew/.linuxbrew/bin; do
+  [ -d "$_d" ] && [[ ":$PATH:" != *":$_d:"* ]] && _prefixo="${_prefixo}${_d}:"
+done
+PATH="${_prefixo}${PATH}"
+export PATH
+
+# Ter python3 nao basta: precisa ser um que enxergue o Pillow. Numa maquina com
+# varios pythons instalados, o primeiro do PATH costuma ser o errado.
+PY=""
+escolher_python() {
+  [ -n "$PY" ] && return 0
+  local cand
+  for cand in python3 /opt/homebrew/bin/python3 /usr/local/bin/python3 \
+              /usr/bin/python3 python; do
+    command -v "$cand" >/dev/null 2>&1 || continue
+    if "$cand" -c "import PIL" 2>/dev/null; then PY="$cand"; return 0; fi
+  done
+  PY="$(command -v python3 2>/dev/null || echo python3)"
+}
+
 VIDEO_HOME="${VIDEO_HOME:-$HOME/.cache/assistir-video}"
 FONT="${VID_FONT:-/System/Library/Fonts/Supplemental/Arial Bold.ttf}"
 SHEET_COLS="${VID_SHEET_COLS:-3}"
@@ -162,7 +187,8 @@ cmd_frames() {
     i=$(( i + 1 ))
   done
   # a hora vai gravada na imagem por PIL: este ffmpeg nao tem drawtext
-  python3 "$(dirname "${BASH_SOURCE[0]}")/frames_tool.py" rotular "$dir/frames/scan"
+  escolher_python
+  "$PY" "$(dirname "${BASH_SOURCE[0]}")/frames_tool.py" rotular "$dir/frames/scan"
   echo "$(ls "$dir"/frames/scan/*.jpg 2>/dev/null | wc -l | tr -d ' ') frames em $dir/frames/scan"
 }
 
@@ -170,7 +196,8 @@ cmd_frames() {
 cmd_folhas() {
   local slug="${1:?uso: vid folhas <slug>}"; local dir; dir="$(wd "$slug")"
   ls "$dir"/frames/scan/*.jpg >/dev/null 2>&1 || die "rode 'vid frames $slug' antes"
-  python3 "$(dirname "${BASH_SOURCE[0]}")/frames_tool.py" folhas \
+  escolher_python
+  "$PY" "$(dirname "${BASH_SOURCE[0]}")/frames_tool.py" folhas \
     "$dir/frames/scan" "$dir/sheets" "$SHEET_COLS" "$SHEET_ROWS"
 }
 
@@ -247,6 +274,67 @@ cmd_varrer() {
   done < "$lista"
 }
 
+# ---------------------------------------------------------------- doctor
+cmd_doctor() {
+  local falhou=0
+  echo "PATH efetivo: $PATH"
+  echo
+  printf "%-12s %-8s %s\n" "FERRAMENTA" "ESTADO" "CAMINHO / OBSERVACAO"
+  local -a obrig=(ffmpeg ffprobe jq python3)
+  local -a extra=(yt-dlp uv gallery-dl whisper)
+  for b in "${obrig[@]}"; do
+    if command -v "$b" >/dev/null 2>&1; then
+      printf "%-12s %-8s %s\n" "$b" "ok" "$(command -v "$b")"
+    else
+      printf "%-12s %-8s %s\n" "$b" "FALTA" "obrigatorio"; falhou=1
+    fi
+  done
+  for b in "${extra[@]}"; do
+    if command -v "$b" >/dev/null 2>&1; then
+      printf "%-12s %-8s %s\n" "$b" "ok" "$(command -v "$b")"
+    else
+      case "$b" in
+        yt-dlp)     printf "%-12s %-8s %s\n" "$b" "FALTA" "sem YouTube"; falhou=1;;
+        uv)         printf "%-12s %-8s %s\n" "$b" "FALTA" "sem 'pb pdf'";;
+        gallery-dl) printf "%-12s %-8s %s\n" "$b" "FALTA" "sem Instagram";;
+        whisper)    printf "%-12s %-8s %s\n" "$b" "-" "opcional: video sem legenda";;
+      esac
+    fi
+  done
+
+  escolher_python
+  if "$PY" -c "import PIL" 2>/dev/null; then
+    printf "%-12s %-8s %s\n" "Pillow" "ok" "via $PY"
+  else
+    printf "%-12s %-8s %s\n" "Pillow" "FALTA" "nenhum python com PIL"; falhou=1
+  fi
+
+  if ffmpeg -hide_banner -filters 2>/dev/null | grep -q drawtext; then
+    printf "%-12s %-8s %s\n" "drawtext" "ok" "(nao usado: o kit rotula com Pillow)"
+  else
+    printf "%-12s %-8s %s\n" "drawtext" "-" "ffmpeg sem libfreetype; Pillow cobre"
+  fi
+
+  local chrome=""
+  for c in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+           "/Applications/Chromium.app/Contents/MacOS/Chromium"; do
+    [ -x "$c" ] && chrome="$c" && break
+  done
+  [ -z "$chrome" ] && chrome="$(command -v google-chrome || command -v chromium || true)"
+  if [ -n "$chrome" ]; then
+    printf "%-12s %-8s %s\n" "chrome" "ok" "$chrome"
+  else
+    printf "%-12s %-8s %s\n" "chrome" "-" "sem 'pb pdf'"
+  fi
+
+  echo
+  if [ "$falhou" = 1 ]; then
+    echo "Algo obrigatorio falta. Rode o install.sh do kit."
+    return 1
+  fi
+  echo "Ambiente ok."
+}
+
 # ---------------------------------------------------------------- status
 cmd_status() {
   local slug="${1:?uso: vid status <slug>}" dir; dir="$(wd "$slug")"
@@ -268,6 +356,7 @@ case "${1:-}" in
   custo)  shift; cmd_custo  "$@";;
   varrer) shift; cmd_varrer "$@";;
   status) shift; cmd_status "$@";;
+  doctor) shift; cmd_doctor "$@";;
   ls)     ls -1 "$VIDEO_HOME" 2>/dev/null;;
   *) cat >&2 <<'USO'
 vid - pipeline de percepcao de video
@@ -281,6 +370,7 @@ vid - pipeline de percepcao de video
   vid custo  <imagens...>           estima tokens de visao antes de ler
   vid varrer <url-canal> [pasta]    colhe transcricoes de um canal inteiro
   vid status <slug> | vid ls
+  vid doctor                        diagnostica o ambiente (rode isto primeiro)
 USO
     exit 1;;
 esac

@@ -12,10 +12,36 @@ Instagram (posts e reels) ──┘
 
 ---
 
+## Onde funciona
+
+As skills rodam no **Claude Code**, e o Claude Code executa os comandos na máquina local — seja no terminal, no app de desktop ou na extensão de IDE. Então funciona nos três, com uma ressalva por plataforma:
+
+| Superfície | Estado |
+|---|---|
+| **CLI no terminal** (macOS/Linux) | funciona |
+| **App de desktop** (macOS) | funciona |
+| **Extensão de IDE** (VS Code, JetBrains) | funciona |
+| **App de desktop** (Windows) | **precisa de WSL** — os scripts são bash |
+| **Claude Code na web** (claude.ai/code) | **não** — não há máquina local com ffmpeg nem navegador logado |
+
+**Sobre o app de desktop:** aplicativo lançado pela interface gráfica no macOS **não herda o PATH do perfil do shell**. Sem tratamento, `ffmpeg`, `yt-dlp`, `uv` e `gallery-dl` somem e o erro que aparece é `command not found`. Os três scripts já resolvem isso sozinhos: eles prefixam o PATH com os diretórios usuais (`/opt/homebrew/bin`, `~/.local/bin`, `/usr/local/bin`, MacPorts, Linuxbrew) e escolhem um `python3` que enxergue o Pillow — numa máquina com vários pythons, o primeiro do PATH costuma ser o errado.
+
+Testado com PATH mínimo (`/usr/bin:/bin:/usr/sbin:/sbin`), que é o pior caso: baixa vídeo, gera folha de contato, lê Instagram e gera PDF.
+
+**Na dúvida, o primeiro comando é sempre:**
+
+```bash
+vid doctor
+```
+
+Ele mostra o PATH efetivo e onde cada ferramenta foi encontrada — ou o que falta.
+
+**Windows:** instale o [WSL](https://learn.microsoft.com/windows/wsl/install), clone e rode o `install.sh` **dentro** do WSL. O Claude Code precisa enxergar o mesmo ambiente. Fora do WSL, o kit não roda: são scripts bash.
+
 ## Instalação
 
 ```bash
-git clone git@github.com:vertexdevs-hq/claude-conteudo-kit.git
+git clone https://github.com/vertexdevs-hq/claude-conteudo-kit.git
 cd claude-conteudo-kit
 ./install.sh
 ```

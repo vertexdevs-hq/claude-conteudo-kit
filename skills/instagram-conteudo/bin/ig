@@ -4,6 +4,13 @@
 # proprio usuario, importada do navegador. Nada de credencial em arquivo.
 set -euo pipefail
 
+# App de desktop lancado pela GUI nao herda o PATH do perfil do shell.
+for _d in /opt/homebrew/bin /usr/local/bin "$HOME/.local/bin" /opt/local/bin \
+          "$HOME/.cargo/bin" /home/linuxbrew/.linuxbrew/bin; do
+  [ -d "$_d" ] && [[ ":$PATH:" != *":$_d:"* ]] && PATH="$_d:$PATH"
+done
+export PATH
+
 IG_HOME="${IG_HOME:-$HOME/.cache/instagram-conteudo}"
 BROWSER="${IG_BROWSER:-chrome}"
 GDL="${GDL_BIN:-$HOME/.local/bin/gallery-dl}"
