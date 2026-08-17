@@ -1,5 +1,7 @@
 # Kit de Conteúdo para Claude Code
 
+> **Primeira vez aqui? Vá direto para [COMECE-AQUI.md](COMECE-AQUI.md)** — cinco minutos, do zero até funcionando. Este README é a referência completa.
+
 Três skills que fazem o Claude Code **assistir vídeo, ler Instagram e virar isso em entregável** — playbook, dossiê, deck, PDF.
 
 Não é um wrapper de API. É o encanamento que resolve o problema real: **o modelo não lê vídeo nem abre o Instagram.** Ele lê texto e imagem. Este kit converte um no outro, com controle de custo em tokens.
