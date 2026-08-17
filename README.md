@@ -125,6 +125,13 @@ O Instagram bloqueia por volume, e o bloqueio cai **na conta que emprestou o coo
 
 ---
 
-## Licença e uso
+## Licença e uso responsável
 
-Ferramenta de pesquisa e análise de conteúdo público. Respeite os termos de uso das plataformas, a lei de direito autoral e a LGPD: colher conteúdo público para estudo é uma coisa, redistribuir obra de terceiro é outra.
+Código sob [licença MIT](LICENSE) — use, altere e redistribua à vontade.
+
+O que a licença **não** cobre é o uso: esta é uma ferramenta de pesquisa e análise de conteúdo público, e a responsabilidade pelo que você colhe é sua.
+
+- **Termos das plataformas.** Coleta automatizada contraria os termos de uso do Instagram. Quem assume o risco é a conta que emprestou o cookie — a sua. Volume baixo e uso para estudo é uma coisa; raspagem em massa é outra.
+- **Direito autoral.** Colher conteúdo de terceiro para estudar é diferente de republicar. O corpus é insumo de análise, não material para redistribuir.
+- **LGPD.** Perfil de empresa é uma coisa; dado de pessoa física é outra. Não use isto para montar base de contatos nem para perfilar indivíduos.
+- **Atribuição.** Playbook ou dossiê feito em cima do conteúdo de alguém deve dizer de quem é o conteúdo. É por isso que a skill `playbook-de-corpus` exige fonte e timestamp em cada afirmação.
