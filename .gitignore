@@ -1,0 +1,18 @@
+# caches de coleta — conteudo de terceiros nao entra no repo
+.cache/
+*.mp4
+*.jpg
+*.jpeg
+*.png
+*.pdf
+*.json3
+*.m4a
+*.wav
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store

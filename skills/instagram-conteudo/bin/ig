@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# ig - colhe conteudo do Instagram (posts, reels, legendas, metricas) como texto.
+# O Instagram bloqueia acesso anonimo desde 2025: tudo aqui exige a sessao do
+# proprio usuario, importada do navegador. Nada de credencial em arquivo.
+set -euo pipefail
+
+IG_HOME="${IG_HOME:-$HOME/.cache/instagram-conteudo}"
+BROWSER="${IG_BROWSER:-chrome}"
+GDL="${GDL_BIN:-$HOME/.local/bin/gallery-dl}"
+SLEEP="${IG_SLEEP:-7.0-12.0}"   # intervalo entre requisicoes; nao baixe isso
+
+die() { echo "erro: $*" >&2; exit 1; }
+
+need_gdl() {
+  [ -x "$GDL" ] || command -v gallery-dl >/dev/null 2>&1 \
+    || die "gallery-dl nao encontrado. rode o install.sh do kit."
+  [ -x "$GDL" ] || GDL="$(command -v gallery-dl)"
+}
+
+slugify() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/^@//; s/[^a-z0-9]\+/-/g; s/^-//; s/-$//'
+}
+
+alvo_url() { # aceita @user, user, ou url completa
+  case "$1" in
+    http*) echo "$1" ;;
+    @*)    echo "https://www.instagram.com/${1#@}/" ;;
+    *)     echo "https://www.instagram.com/$1/" ;;
+  esac
+}
+
+# ---------------------------------------------------------------- colher
+cmd_colher() {
+  need_gdl
+  local alvo="${1:?uso: ig colher <@perfil|url> [--n N] [--com-midia] [--saida DIR]}"; shift || true
+  local n=30 midia=0 saida=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --n)         n="$2"; shift 2;;
+      --com-midia) midia=1; shift;;
+      --saida)     saida="$2"; shift 2;;
+      *) shift;;
+    esac
+  done
+
+  local slug; slug="$(slugify "$alvo")"
+  saida="${saida:-$IG_HOME/$slug}"
+  mkdir -p "$saida/posts"
+
+  local url; url="$(alvo_url "$alvo")"
+  echo "colhendo ate $n itens de $url" >&2
+  echo "sessao: cookies do $BROWSER (leitura; nada e publicado)" >&2
+
+  local -a args=(
+    --cookies-from-browser "$BROWSER"
+    --range "1-$n"
+    --write-metadata
+    --sleep-request "$SLEEP"
+    -D "$saida/posts"
+  )
+  [ "$midia" = 0 ] && args+=(--no-download)
+
+  "$GDL" "${args[@]}" "$url" 2>&1 | grep -vE "^\[cookies\]" || true
+
+  local qtd; qtd=$(ls "$saida/posts"/*.json 2>/dev/null | wc -l | tr -d ' ')
+  echo "$qtd itens em $saida/posts" >&2
+  [ "$qtd" -gt 0 ] || die "nada colhido. sessao expirada? faca login no Instagram no $BROWSER e repita."
+  cmd_indice "$saida"
+}
+
+# ---------------------------------------------------------------- indice
+cmd_indice() {
+  local dir="${1:?uso: ig indice <pasta>}"
+  [ -d "$dir/posts" ] || die "sem pasta posts em $dir"
+  python3 "$(dirname "${BASH_SOURCE[0]}")/ig_index.py" "$dir"
+}
+
+# ---------------------------------------------------------------- videos
+cmd_videos() {
+  local dir="${1:?uso: ig videos <pasta>}"
+  python3 "$(dirname "${BASH_SOURCE[0]}")/ig_index.py" "$dir" --videos
+}
+
+# ---------------------------------------------------------------- baixar
+cmd_baixar() {
+  need_gdl
+  local alvo="${1:?uso: ig baixar <url-do-post|@perfil> [--n N] [--saida DIR]}"; shift || true
+  local n=10 saida=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --n)     n="$2"; shift 2;;
+      --saida) saida="$2"; shift 2;;
+      *) shift;;
+    esac
+  done
+  local slug; slug="$(slugify "$alvo")"
+  saida="${saida:-$IG_HOME/$slug}"
+  mkdir -p "$saida/posts"
+  "$GDL" --cookies-from-browser "$BROWSER" --range "1-$n" --write-metadata \
+    --sleep-request "$SLEEP" -D "$saida/posts" "$(alvo_url "$alvo")" \
+    2>&1 | grep -vE "^\[cookies\]" || true
+  ls -1 "$saida/posts" | head -20
+}
+
+# ---------------------------------------------------------------- sessao
+cmd_sessao() {
+  need_gdl
+  echo "navegador configurado: $BROWSER  (mude com IG_BROWSER=firefox|safari|edge|brave)"
+  echo "testando leitura..."
+  if "$GDL" --cookies-from-browser "$BROWSER" --simulate --range 1-1 \
+      "https://www.instagram.com/instagram/" >/dev/null 2>&1; then
+    echo "OK - sessao valida, o Instagram respondeu"
+  else
+    echo "FALHOU - abra o Instagram no $BROWSER, faca login, e repita"
+    exit 1
+  fi
+}
+
+case "${1:-}" in
+  colher) shift; cmd_colher "$@";;
+  indice) shift; cmd_indice "$@";;
+  videos) shift; cmd_videos "$@";;
+  baixar) shift; cmd_baixar "$@";;
+  sessao) shift; cmd_sessao "$@";;
+  *) cat >&2 <<'USO'
+ig - colher conteudo do Instagram como texto
+
+  ig sessao                              testa se a sessao do navegador funciona
+  ig colher <@perfil|url> [--n N]        posts+legendas+metricas -> corpus markdown
+             [--com-midia] [--saida DIR] --com-midia tambem baixa foto/video
+  ig baixar <url|@perfil> [--n N]        baixa a midia (para assistir reels)
+  ig indice <pasta>                      remonta o corpus.md e o ranking
+  ig videos <pasta>                      lista os videos baixados (para o `vid`)
+
+O Instagram exige sessao autenticada: os cookies saem do seu navegador
+(IG_BROWSER, padrao chrome). Leitura apenas - nada e publicado.
+USO
+    exit 1;;
+esac

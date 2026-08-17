@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# pb - transforma markdown em PDF (documento ou deck).
+# Roda o conversor via `uv run`, entao nao instala biblioteca no python do sistema.
+set -euo pipefail
+
+AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+command -v uv >/dev/null 2>&1 || {
+  echo "erro: uv nao encontrado. rode o install.sh do kit." >&2; exit 1; }
+
+case "${1:-}" in
+  pdf)
+    shift
+    uv run --quiet --with markdown python3 "$AQUI/md2pdf.py" "$@"
+    ;;
+  *)
+    cat >&2 <<'USO'
+pb - markdown -> PDF
+
+  pb pdf <arquivo.md> [saida.pdf] [--modo doc|deck] [--acento "#B4472B"]
+                                  [--guardar-html]
+
+  --modo doc   (padrao) documento A4: relatorio, playbook, dossie
+  --modo deck  slides 16:9; cada `---` do markdown vira um slide novo
+  --acento     cor de destaque; escolha uma que combine com o assunto
+
+O PDF sai do motor de impressao do Chrome: o texto continua selecionavel.
+USO
+    exit 1;;
+esac
